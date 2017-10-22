@@ -14,7 +14,10 @@
   "license": "ISC",
   "dependencies": {
     "autobahn": "^17.5.2",
+    "convnetjs": "^0.3.0",
+    "plnx": "^0.1.2",
     "poloniex-api-node": "^1.1.1",
-    "poloniex-unofficial": "^1.1.2"
+    "poloniex-unofficial": "^1.1.2",
+    "poloniex.js": "0.0.7"
   }
 }

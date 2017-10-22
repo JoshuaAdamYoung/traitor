@@ -1,186 +1,82 @@
-const Poloniex = require('poloniex-api-node');
-const poloniex = new Poloniex(process.env.POLO_TSHIRT, process.env.GOLF_CLUB);
-
-/*
-
-poloniex.returnTicker(function(err, ticker) {
-  console.log('BTC_ETH last traded at: ' + ticker.BTC_ETH.last)
-});
-
-*/
-
-/*
-
-var autobahn = require('autobahn');
-var wsuri = "wss://api.poloniex.com";
-var connection = new autobahn.Connection({
-  url: wsuri,
-  realm: "realm1"
-});
-
-connection.onopen = function (session) {
-	function marketEvent (args,kwargs) {
-		//console.log(args);
-	}
-	function tickerEvent (args,kwargs) {
-		//console.log(args);
-	}
-	function trollboxEvent (args,kwargs) {
-		console.log(args);
-	}
-	session.subscribe('BTC_XMR', marketEvent);
-	session.subscribe('ticker', tickerEvent);
-	session.subscribe('trollbox', trollboxEvent);
+"use strict";
+exports.__esModule = true;
+var mmm_1 = require("./comp/mmm");
+var Poloniex = require("poloniex.js");
+var autobahn = require("autobahn");
+var fs = require("fs");
+var convnetjs = require("convnetjs");
+var mmmut = new mmm_1.MMMUtils();
+var util = new Poloniex();
+function fetchChartData() {
+    var startChart = new Date(2017, 9, 11, 0, 0, 0, 0).getTime() / 1000;
+    var endChart = new Date(2017, 9, 12, 0, 0, 0, 0).getTime() / 1000;
+    var chartData = util.returnChartData('BTC', 'ETH', 300, startChart, endChart, function (err, data) {
+        var mv = mmmut.calculateMovingVolume(data, 10);
+        var max = mmmut.maximumVal(mv);
+        var mvc = mmmut.normalize(mv, max);
+        return mvc;
+    });
+    return chartData;
 }
-
-connection.onclose = function () {
-  console.log("Websocket connection closed");
-}
-
-connection.open();
-
-*/
-
-
-
-// Import the module
-var polo = require("poloniex-unofficial");
-
-// Get access to the push API
-var poloPush = new polo.PushWrapper();
-var poloPublic = new polo.PublicWrapper();
-
-var dataSet = [];
-var data10 = [];
-var data50 = [];
-var data200 = [];
-var dataDerivation = [];
-var sum10 = 0;
-var sum50 = 0;
-var sum200 = 0;
-var mean10 = 0;
-var mean50 = 0;
-var mean200 = 0;
-var d10;
-var d50;
-var d200;
-
-
-// Some currency pairs to watch
-var watchList = ["BTC_ETH", "USDT_BTC", "BTC_USDT"];
-var ethList = ["BTC_ETH"];
-
-// Get price ticker updates
-poloPush.ticker((err, response) => {
-    if (err) {
-        // Log error message
-        console.log("An error occurred: " + err.msg);
-
-        // Disconnect
-        return true;
-    }
-
-    // Check if this currency is in the watch list
-      if (ethList.indexOf(response.currencyPair) > -1) {
-          // Log the currency pair and its last price
-          // console.log(response.currencyPair + ": " + response.last);
-          numRes = Number(response.last);
-          if (numRes !== dataSet[0]){
-            dataSet.unshift(numRes);
-            derivation([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
-          }
-
-          function derivation(arr){
-            let dataArr = [];
-            for ( i = 0; i < arr.length; i++) {
-              let size = arr[i];
-              let data = dataSet.slice(0, size);
-              let mean = data.reduce((a, b) => {
-                return a + b
-              }, 0) / size;
-              let derivation = ((numRes - mean) * 100000).toFixed();
-              dataArr.push(derivation);
+function getEthData() {
+    var wsuri = "wss://api.poloniex.com";
+    var connection = new autobahn.Connection({
+        url: wsuri,
+        realm: "realm1"
+    });
+    var collection = [];
+    connection.onopen = function (session) {
+        function ethTicker(args, kwargs) {
+            if (args.indexOf('BTC_ETH') > -1) {
+                var now = Date.now();
+                args[0] = now;
+                collection.unshift(args);
+                if (collection.length % 10 == 0) {
+                    console.log('Collection has ' + collection.length + ' items.');
+                }
+                if (collection.length >= 1000) {
+                    var dataFile = fs.readFileSync('./data.json');
+                    var data_1 = JSON.parse(dataFile);
+                    collection.forEach(function (item) {
+                        data_1.push(item);
+                    });
+                    console.log('Writing ' + data_1.length + ' items to database');
+                    var dataJSON = JSON.stringify(data_1);
+                    fs.writeFileSync('./data.json', dataJSON);
+                    collection = [];
+                }
             }
-            console.log(dataArr);
-          }
-
-          /*
-            data10 = dataSet.slice(0,10);
-            sum10 = data10.reduce((a, b) => {
-              return a + b
-            }, 0);
-            mean10 = sum10 / 10;
-            if(dataSet.length > 10) {
-              d10 = numRes - mean10;
-              d10 = d10 * 100000;
-              d10 = d10.toFixed();
-            } else {
-              d10 = 'insuf data'
-            };
-
-            data50 = dataSet.slice(0,50);
-
-            sum50 = data50.reduce((a, b) => {
-              return a + b
-            }, 0);
-
-            mean50 = sum50 / 50;
-
-            if(dataSet.length > 50) {
-              d50 = numRes - mean50;
-              d50 = d50 * 100000;
-              d50 = d50.toFixed();
-            } else {
-              d50 = 'insuf data'
-            };
-
-            data200 = dataSet.slice(0,200);
-
-            sum200 = data200.reduce((a, b) => {
-              return a + b
-            }, 0);
-
-            mean200 = sum200 / 200;
-
-            if(dataSet.length > 200) {
-              d200 = numRes - mean200;
-              d200 = d200 * 100000;
-              d200 = d200.toFixed();
-            } else {
-              d200 = 'insuf data'
-            }
-
-            //console.log(sum);
-            //console.log(mean);
-            d = new Date();
-            time = d.toTimeString().split(' ')[0];
-            console.log('BTC_ETH, data points: ' + dataSet.length + ', current value: ' + response.last + ', d10: ' + d10 + ', d50: ' + d50 + ', d200: ' + d200 + ', time: ' + time);
-            */
-
-      }
-
-
-});
-
-/*
-var startTime = new Date(2017, 4, 11);
-var now = Date.now();
-
-poloPublic.returnTradeHistory('BTC_ETH', startTime, now, (err, response) => {
-  if (err) {
-      // Log error message
-      console.log("An error occurred: " + err.msg);
-
-      // Disconnect
-      return true;
-  }
-  console.log(response);
-});
-
-*/
-
-function sma(points, data){
-  for(i = 0; i < data.length; i++){
-
-  }
+        }
+        session.subscribe('ticker', ethTicker);
+    };
+    connection.onclose = function () {
+        console.log("Websocket connection closed");
+    };
+    connection.open();
 }
+// getEthData();
+function firstTrain() {
+    var trainFile = fs.readFileSync('./data.json');
+    var trainData = JSON.parse(trainFile);
+    var layer_defs = [];
+    // input layer of size 1x1x2 (all volumes are 3D)
+    layer_defs.push({ type: 'input', out_sx: 10, out_sy: 1, out_depth: 1 });
+    // some fully connected layers
+    layer_defs.push({ type: 'fc', num_neurons: 10, activation: 'relu' });
+    layer_defs.push({ type: 'fc', num_neurons: 10, activation: 'relu' });
+    // a softmax classifier predicting probabilities for two classes: 0,1
+    layer_defs.push({ type: 'softmax', num_classes: 2 });
+    // create a net out of it
+    var net = new convnetjs.Net();
+    net.makeLayers(layer_defs);
+    // the network always works on Vol() elements. These are essentially
+    // simple wrappers around lists, but also contain gradients and dimensions
+    // line below will create a 1x1x2 volume and fill it with 0.5 and -1.3
+    trainData.forEach(function (element) {
+        var x = new convnetjs.Vol(element);
+        var probability_volume = net.forward(x);
+        console.log('probability that x is class 0: ' + probability_volume.w[0]);
+    });
+}
+firstTrain();
+// prints 0.50101 
